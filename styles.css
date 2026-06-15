@@ -185,6 +185,11 @@ input:focus-visible {
   text-transform: uppercase;
 }
 
+.mode-badge.strategy-mode-badge {
+  border-color: rgba(64, 185, 135, 0.45);
+  color: #79d9b2;
+}
+
 .icon-button {
   min-height: 32px;
   padding: 0 11px;
@@ -468,6 +473,30 @@ input:focus-visible {
   text-align: center;
 }
 
+.status-panel.strategy-correct .status-kicker {
+  color: #71dfad;
+}
+
+.status-panel.strategy-correct p {
+  color: #baf3da;
+}
+
+.status-panel.strategy-wrong .status-kicker {
+  color: #ff8c8c;
+}
+
+.status-panel.strategy-wrong p {
+  color: #ffc0c0;
+}
+
+.status-panel.strategy-hint .status-kicker {
+  color: #77cbea;
+}
+
+.status-panel.strategy-hint p {
+  color: #bce8f7;
+}
+
 .current-count {
   display: grid;
   justify-items: center;
@@ -749,6 +778,27 @@ input:focus-visible {
   color: var(--gold-bright);
 }
 
+.action-button.hint-button {
+  border: 1px solid rgba(87, 176, 208, 0.55);
+  background: rgba(87, 176, 208, 0.12);
+  color: #9bdef5;
+}
+
+.action-button.strategy-suggested {
+  border-color: #71dfad;
+  background: rgba(64, 185, 135, 0.2);
+  color: #c6f7e1;
+  box-shadow: 0 0 0 2px rgba(64, 185, 135, 0.15);
+  animation: strategy-pulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes strategy-pulse {
+  to {
+    box-shadow: 0 0 0 5px rgba(64, 185, 135, 0.04);
+    filter: brightness(1.18);
+  }
+}
+
 .key-hint {
   display: inline-grid;
   width: 16px;
@@ -963,6 +1013,61 @@ dialog p {
   margin-top: 18px;
 }
 
+.game-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.game-mode-options label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.game-mode-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.game-mode-options label > span {
+  display: block;
+  height: 100%;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.game-mode-options strong,
+.game-mode-options small {
+  display: block;
+}
+
+.game-mode-options strong {
+  font-size: 9px;
+}
+
+.game-mode-options small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.game-mode-options input:checked + span {
+  border-color: rgba(217, 164, 65, 0.65);
+  background: rgba(217, 164, 65, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.12);
+}
+
+.game-mode-options input:focus-visible + span {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
 .bankroll-presets button {
   min-height: 35px;
   border: 1px solid var(--line);
@@ -1152,6 +1257,15 @@ dialog p {
 
 .mobile-preview .icon-button {
   padding: 0 8px;
+  font-size: 8px;
+}
+
+.mobile-preview #session-settings {
+  font-size: 0;
+}
+
+.mobile-preview #session-settings::after {
+  content: "New";
   font-size: 8px;
 }
 
@@ -1560,8 +1674,25 @@ dialog p {
     grid-template-columns: repeat(4, 1fr);
   }
 
+  .strategy-mode .action-controls {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .strategy-mode .action-button {
+    padding-inline: 3px;
+    font-size: 7px;
+  }
+
   .key-hint {
     display: none;
+  }
+
+  .game-mode-options {
+    gap: 5px;
+  }
+
+  .game-mode-options label > span {
+    padding: 8px 5px;
   }
 }
 

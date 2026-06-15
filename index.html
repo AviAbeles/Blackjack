@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20260615-mobile" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-strategy" />
   </head>
   <body>
     <div class="app-shell">
@@ -184,6 +184,14 @@
               >
                 No thanks
               </button>
+              <button
+                class="action-button hint-button"
+                id="strategy-hint"
+                type="button"
+                hidden
+              >
+                Hint
+              </button>
               <button class="action-button primary" id="deal" type="button">
                 Deal cards
               </button>
@@ -240,8 +248,32 @@
     <dialog id="session-dialog">
       <form id="session-form">
         <span class="eyebrow">TABLE SETUP</span>
-        <h2>Choose your bankroll</h2>
-        <p>Set the amount you want to bring to the table.</p>
+        <h2>Choose your game mode</h2>
+        <p>Perfect Strategy adds coaching without changing the casino rules.</p>
+
+        <div class="game-mode-options" aria-label="Game mode">
+          <label>
+            <input name="game-mode" type="radio" value="normal" checked />
+            <span>
+              <strong>Normal</strong>
+              <small>Standard table play.</small>
+            </span>
+          </label>
+          <label>
+            <input name="game-mode" type="radio" value="hard" />
+            <span>
+              <strong>Hard</strong>
+              <small>Bankroll stays locked.</small>
+            </span>
+          </label>
+          <label>
+            <input name="game-mode" type="radio" value="perfect" />
+            <span>
+              <strong>Perfect Strategy</strong>
+              <small>Hints and move feedback.</small>
+            </span>
+          </label>
+        </div>
 
         <div class="bankroll-presets" aria-label="Starting bankroll presets">
           <button data-bankroll="100" type="button">£100</button>
@@ -263,17 +295,6 @@
               value="1000"
               required
             />
-          </span>
-        </label>
-
-        <label class="hard-mode-option">
-          <input id="hard-mode" type="checkbox" />
-          <span>
-            <strong>Hard mode</strong>
-            <small>
-              Once the challenge starts, the bankroll is locked until you go
-              bankrupt or forfeit.
-            </small>
           </span>
         </label>
 
@@ -313,6 +334,6 @@
         );
       }
     </script>
-    <script type="module" src="./src/app.js?v=20260615-mobile"></script>
+    <script type="module" src="./src/app.js?v=20260615-strategy"></script>
   </body>
 </html>

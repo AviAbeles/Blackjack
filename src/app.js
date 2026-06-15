@@ -1,5 +1,6 @@
 import { BlackjackGame, getHandTotals } from "./game.js";
 import { TableSound } from "./sound.js";
+import { getBasicStrategyAction } from "./strategy.js";
 
 const game = new BlackjackGame();
 const CARD_DELAY = 360;
@@ -37,6 +38,7 @@ const elements = {
   playerScore: document.querySelector("#player-score"),
   currentCount: document.querySelector("#current-count"),
   currentCountLabel: document.querySelector("#current-count-label"),
+  statusPanel: document.querySelector(".status-panel"),
   statusKicker: document.querySelector("#status-kicker"),
   statusMessage: document.querySelector("#status-message"),
   deal: document.querySelector("#deal"),
@@ -46,6 +48,7 @@ const elements = {
   split: document.querySelector("#split"),
   insurance: document.querySelector("#insurance"),
   declineInsurance: document.querySelector("#decline-insurance"),
+  strategyHint: document.querySelector("#strategy-hint"),
   undoBet: document.querySelector("#undo-bet"),
   clearBet: document.querySelector("#clear-bet"),
   primaryChips: document.querySelector("#primary-chips"),
@@ -64,7 +67,7 @@ const elements = {
   sessionCancel: document.querySelector("#session-cancel"),
   startingBankroll: document.querySelector("#starting-bankroll"),
   bankrollPresets: [...document.querySelectorAll("[data-bankroll]")],
-  hardMode: document.querySelector("#hard-mode"),
+  gameModes: [...document.querySelectorAll('[name="game-mode"]')],
   sessionError: document.querySelector("#session-error"),
   forfeitDialog: document.querySelector("#forfeit-dialog"),
 };
@@ -77,6 +80,9 @@ const ui = {
   visibleDealerCards: 0,
   sessionRequired: true,
   extraChipsOpen: false,
+  gameMode: "normal",
+  strategyFeedback: null,
+  strategyHintAction: null,
 };
 
 const suitMarkup = {
@@ -260,6 +266,12 @@ function renderChips(canBet) {
 }
 
 function renderStatus() {
+  elements.statusPanel.classList.remove(
+    "strategy-correct",
+    "strategy-wrong",
+    "strategy-hint",
+  );
+
   if (ui.busy) {
     elements.statusKicker.textContent =
       ui.stage === "dealer" ? "DEALER DRAWING" : "DEALING";
@@ -267,6 +279,14 @@ function renderStatus() {
       ui.stage === "dealer"
         ? "The house completes its hand."
         : "Cards are coming to the table.";
+    return;
+  }
+
+  if (ui.gameMode === "perfect" && ui.strategyFeedback) {
+    const feedback = ui.strategyFeedback;
+    elements.statusPanel.classList.add(`strategy-${feedback.tone}`);
+    elements.statusKicker.textContent = feedback.kicker;
+    elements.statusMessage.textContent = feedback.message;
     return;
   }
 
@@ -299,7 +319,8 @@ function renderControls() {
 
   elements.deal.disabled = !canDeal;
   elements.deal.textContent = game.phase === "round-over" ? "Deal again" : "Deal cards";
-  elements.deal.hidden = insurancePhase;
+  elements.deal.hidden =
+    insurancePhase || (ui.gameMode === "perfect" && playerTurn);
   elements.hit.disabled = !playerTurn;
   elements.stand.disabled = !playerTurn;
   elements.double.disabled = ui.busy || !game.canDouble();
@@ -310,12 +331,32 @@ function renderControls() {
   elements.split.hidden = insurancePhase;
   elements.insurance.hidden = !insurancePhase;
   elements.declineInsurance.hidden = !insurancePhase;
+  elements.strategyHint.hidden =
+    ui.gameMode !== "perfect" || (!playerTurn && !insurancePhase);
+  elements.strategyHint.disabled =
+    ui.busy || (!playerTurn && !insurancePhase);
   elements.insurance.disabled = !game.canTakeInsurance();
   elements.insurance.textContent = `Insurance ${formatMoney(game.initialBet / 2)}`;
   elements.undoBet.disabled =
     ui.busy || !canBet || game.pendingBetStack.length === 0;
   elements.clearBet.disabled = ui.busy || !canBet || game.pendingBet === 0;
   elements.extraChipsToggle.disabled = ui.busy || !canBet;
+
+  const strategyButtons = {
+    hit: elements.hit,
+    stand: elements.stand,
+    double: elements.double,
+    split: elements.split,
+    insurance: elements.insurance,
+    "decline-insurance": elements.declineInsurance,
+  };
+  for (const button of Object.values(strategyButtons)) {
+    button.classList.remove("strategy-suggested");
+  }
+  if (ui.strategyHintAction && strategyButtons[ui.strategyHintAction]) {
+    strategyButtons[ui.strategyHintAction].classList.add("strategy-suggested");
+  }
+
   renderChips(canBet && !ui.busy);
 }
 
@@ -333,7 +374,14 @@ function render() {
   elements.wins.textContent = game.stats.wins;
   elements.pushes.textContent = game.stats.pushes;
   elements.losses.textContent = game.stats.losses;
-  elements.modeBadge.hidden = !game.hardMode;
+  elements.modeBadge.hidden = ui.gameMode === "normal";
+  elements.modeBadge.textContent =
+    ui.gameMode === "perfect" ? "Perfect strategy" : "Hard mode";
+  elements.modeBadge.classList.toggle(
+    "strategy-mode-badge",
+    ui.gameMode === "perfect",
+  );
+  elements.shell.classList.toggle("strategy-mode", ui.gameMode === "perfect");
   elements.sessionSettings.textContent =
     game.hardMode && game.challengeActive && !game.isBankrupt()
       ? "Forfeit"
@@ -408,6 +456,9 @@ async function finishAnimation(playResultSound = false) {
 
 async function dealRound() {
   if (ui.busy) return;
+
+  ui.strategyFeedback = null;
+  ui.strategyHintAction = null;
 
   try {
     if (!game.deal()) return;
@@ -489,6 +540,38 @@ function handleChipClick(event) {
   }
 }
 
+function currentStrategyRecommendation() {
+  return getBasicStrategyAction({
+    playerCards: game.activeHand?.cards || [],
+    dealerCard: game.dealerHand[0],
+    canDouble: game.canDouble(),
+    canSplit: game.canSplit(),
+    phase: game.phase,
+  });
+}
+
+function evaluateStrategyChoice(action) {
+  if (ui.gameMode !== "perfect") return;
+
+  const recommendation = currentStrategyRecommendation();
+  if (!recommendation) return;
+
+  const correct = recommendation.action === action;
+  ui.strategyHintAction = null;
+  ui.strategyFeedback = {
+    tone: correct ? "correct" : "wrong",
+    kicker: correct ? "CORRECT MOVE" : "TRY AGAIN",
+    message: correct
+      ? `${recommendation.label}. ${recommendation.reason}`
+      : `You chose ${action === "decline-insurance" ? "No insurance" : action}. Basic strategy says ${recommendation.label}.`,
+  };
+}
+
+function playTrainedAction(actionName, action, type = "action") {
+  evaluateStrategyChoice(actionName);
+  return playAction(action, type);
+}
+
 elements.primaryChips.addEventListener("click", handleChipClick);
 elements.extraChips.addEventListener("click", handleChipClick);
 
@@ -513,25 +596,46 @@ elements.undoBet.addEventListener("click", () => {
 
 elements.deal.addEventListener("click", dealRound);
 
-elements.hit.addEventListener("click", () => playAction(() => game.hit()));
+elements.hit.addEventListener("click", () =>
+  playTrainedAction("hit", () => game.hit()),
+);
 
-elements.stand.addEventListener("click", () => playAction(() => game.stand()));
+elements.stand.addEventListener("click", () =>
+  playTrainedAction("stand", () => game.stand()),
+);
 
 elements.double.addEventListener("click", () =>
-  playAction(() => game.doubleDown(), "double"),
+  playTrainedAction("double", () => game.doubleDown(), "double"),
 );
 
 elements.split.addEventListener("click", () =>
-  playAction(() => game.split(), "split"),
+  playTrainedAction("split", () => game.split(), "split"),
 );
 
 elements.insurance.addEventListener("click", () =>
-  playAction(() => game.takeInsurance(), "insurance"),
+  playTrainedAction("insurance", () => game.takeInsurance(), "insurance"),
 );
 
 elements.declineInsurance.addEventListener("click", () =>
-  playAction(() => game.declineInsurance(), "insurance"),
+  playTrainedAction(
+    "decline-insurance",
+    () => game.declineInsurance(),
+    "insurance",
+  ),
 );
+
+elements.strategyHint.addEventListener("click", () => {
+  const recommendation = currentStrategyRecommendation();
+  if (!recommendation) return;
+
+  ui.strategyHintAction = recommendation.action;
+  ui.strategyFeedback = {
+    tone: "hint",
+    kicker: "STRATEGY HINT",
+    message: `${recommendation.label}. ${recommendation.reason}`,
+  };
+  render();
+});
 
 elements.soundToggle.addEventListener("click", () => {
   sound.setMuted(!sound.muted);
@@ -559,7 +663,9 @@ function openSessionDialog(required = false) {
   ui.sessionRequired = required;
   elements.sessionCancel.hidden = required;
   elements.startingBankroll.value = String(game.startingBalance);
-  elements.hardMode.checked = game.hardMode;
+  for (const mode of elements.gameModes) {
+    mode.checked = mode.value === ui.gameMode;
+  }
   elements.sessionError.textContent = "";
   elements.sessionDialog.showModal();
 }
@@ -581,11 +687,13 @@ elements.sessionDialog.addEventListener("cancel", (event) => {
 elements.sessionForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const startingBalance = Number(elements.startingBankroll.value);
+  const selectedMode =
+    elements.gameModes.find((mode) => mode.checked)?.value || "normal";
 
   try {
     const configured = game.configureSession({
       startingBalance,
-      hardMode: elements.hardMode.checked,
+      hardMode: selectedMode === "hard",
     });
     if (!configured) {
       elements.sessionError.textContent =
@@ -593,9 +701,12 @@ elements.sessionForm.addEventListener("submit", (event) => {
       return;
     }
 
+    ui.gameMode = selectedMode;
     ui.visiblePlayerCards = [];
     ui.visibleDealerCards = 0;
     ui.extraChipsOpen = false;
+    ui.strategyFeedback = null;
+    ui.strategyHintAction = null;
     elements.sessionDialog.close();
     sound.chip();
     render();
