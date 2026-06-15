@@ -120,11 +120,21 @@ function renderHands() {
       const cards = hand.cards.slice(0, visibleCount);
       const active =
         game.phase === "player" && game.activeHandIndex === handIndex;
+      const handTotal = formatHandTotal(cards);
       const resultLabel = hand.result
         ? hand.result === "blackjack"
           ? "Blackjack"
           : hand.result
         : "";
+      const stateLabel = active
+        ? "Play now"
+        : hand.result
+          ? ""
+          : hand.bust
+          ? "Bust"
+          : hand.stood
+            ? "Standing"
+            : "";
       const cardsMarkup = cards
         .map((card, cardIndex) =>
           cardMarkup(
@@ -141,7 +151,9 @@ function renderHands() {
         <section class="player-hand ${active ? "active" : ""} ${hand.result || ""}">
           <div class="player-hand-meta">
             <span>${game.playerHands.length > 1 ? `Hand ${handIndex + 1}` : "Main hand"}</span>
-            <strong>${formatMoney(hand.wager)}</strong>
+            <strong>Total ${handTotal}</strong>
+            <span>${formatMoney(hand.wager)}</span>
+            ${stateLabel ? `<em class="hand-state">${stateLabel}</em>` : ""}
             ${resultLabel ? `<em>${resultLabel}</em>` : ""}
           </div>
           <div class="cards">${cardsMarkup}</div>
@@ -165,12 +177,19 @@ function renderHands() {
     const cards = hand.cards.slice(0, ui.visiblePlayerCards[index] || 0);
     return formatHandTotal(cards);
   });
-  elements.playerScore.textContent =
-    visibleScores.length > 1
-      ? visibleScores.join(" | ")
-      : visibleScores[0] || "--";
-  elements.playerTotalLabel.textContent =
-    visibleScores.length > 1 ? "Hand totals" : "Your total";
+  if (visibleScores.length > 1 && game.phase === "player") {
+    elements.playerScore.textContent =
+      visibleScores[game.activeHandIndex] || "--";
+    elements.playerTotalLabel.textContent =
+      `Hand ${game.activeHandIndex + 1} total`;
+  } else {
+    elements.playerScore.textContent =
+      visibleScores.length > 1
+        ? visibleScores.join(" | ")
+        : visibleScores[0] || "--";
+    elements.playerTotalLabel.textContent =
+      visibleScores.length > 1 ? "Final totals" : "Your total";
+  }
   elements.dealerScore.textContent = formatHandTotal(dealerCards);
 }
 
@@ -254,12 +273,15 @@ function renderStatus() {
   );
 
   if (ui.busy) {
-    elements.statusKicker.textContent =
-      ui.stage === "dealer" ? "DEALER PLAYING" : "DEALING";
-    elements.statusMessage.textContent =
-      ui.stage === "dealer"
-        ? "Dealer draws to at least 17."
-        : "Please wait.";
+    const busyStatus = {
+      dealer: ["DEALER PLAYING", "Dealer draws to at least 17."],
+      split: ["SPLITTING HANDS", "One new card is dealt to each hand."],
+      "split-aces": ["SPLIT ACES", "Each ace receives one card, then stands."],
+      deal: ["DEALING", "Please wait."],
+    };
+    const [kicker, message] = busyStatus[ui.stage] || busyStatus.deal;
+    elements.statusKicker.textContent = kicker;
+    elements.statusMessage.textContent = message;
     return;
   }
 
@@ -274,7 +296,12 @@ function renderStatus() {
   const status = {
     betting: ["BETTING", "Choose chips, then press Deal."],
     insurance: ["INSURANCE", "Choose Insurance or No thanks."],
-    player: ["YOUR TURN", "Choose Hit, Stand, Double, or Split."],
+    player: [
+      game.playerHands.length > 1
+        ? `PLAY HAND ${game.activeHandIndex + 1}`
+        : "YOUR TURN",
+      "Choose Hit, Stand, Double, or Split.",
+    ],
     dealer: ["DEALER'S TURN", "Dealer draws to at least 17."],
     "round-over": [
       game.result === "loss"
@@ -496,12 +523,18 @@ async function playAction(action, type = "action") {
           Math.min(previousPlayerCards[index] || 0, hand.cards.length),
         );
   ui.visibleDealerCards = previousDealerCards;
-  ui.stage =
-    game.playerHands.some(
-      (hand, index) => hand.cards.length > (ui.visiblePlayerCards[index] || 0),
-    )
-      ? "deal"
-      : "dealer";
+  const hasPlayerCardsToReveal = game.playerHands.some(
+    (hand, index) => hand.cards.length > (ui.visiblePlayerCards[index] || 0),
+  );
+  const splitAces =
+    type === "split" && game.playerHands.every((hand) => hand.splitAces);
+  ui.stage = hasPlayerCardsToReveal
+    ? type === "split"
+      ? splitAces
+        ? "split-aces"
+        : "split"
+      : "deal"
+    : "dealer";
   render();
 
   await revealRemainingPlayerCards();
@@ -553,9 +586,18 @@ function evaluateStrategyChoice(action) {
   };
 }
 
-function playTrainedAction(actionName, action, type = "action") {
+async function playTrainedAction(actionName, action, type = "action") {
   evaluateStrategyChoice(actionName);
-  return playAction(action, type);
+  const feedback = ui.strategyFeedback;
+  await playAction(action, type);
+
+  if (ui.gameMode === "perfect" && feedback) {
+    await wait(1100);
+    if (ui.strategyFeedback === feedback) {
+      ui.strategyFeedback = null;
+      render();
+    }
+  }
 }
 
 elements.primaryChips.addEventListener("click", handleChipClick);

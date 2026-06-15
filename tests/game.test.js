@@ -223,6 +223,51 @@ test("split aces receive one card each and automatically stand", () => {
   assert.equal(game.balance, 1200);
 });
 
+test("split aces that make 21 are regular wins, not blackjacks", () => {
+  const game = createRiggedGame([
+    card("A"),
+    card("6"),
+    card("A"),
+    card("10"),
+    card("9"),
+    card("10"),
+    card("2"),
+  ]);
+
+  betAndDeal(game);
+  game.split();
+
+  assert.equal(game.playerHands[0].result, "win");
+  assert.notEqual(game.playerHands[0].result, "blackjack");
+  assert.equal(game.playerHands[1].result, "win");
+  assert.equal(game.balance, 1200);
+});
+
+test("split hands advance one at a time and expose the active hand", () => {
+  const game = createRiggedGame([
+    card("8"),
+    card("6"),
+    card("8"),
+    card("2"),
+    card("3"),
+    card("10"),
+    card("2"),
+  ]);
+
+  betAndDeal(game);
+  game.split();
+
+  assert.equal(game.phase, "player");
+  assert.equal(game.activeHandIndex, 0);
+  assert.equal(game.activeHand.cards[0].rank, "8");
+  assert.equal(game.stand(), true);
+  assert.equal(game.phase, "player");
+  assert.equal(game.activeHandIndex, 1);
+  assert.equal(game.activeHand.cards[0].rank, "8");
+  assert.equal(game.stand(), true);
+  assert.equal(game.phase, "round-over");
+});
+
 test("doubling is allowed on any two-card non-ace-split hand and draws once", () => {
   const game = createRiggedGame([
     card("5"),

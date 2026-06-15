@@ -372,6 +372,7 @@ input:focus-visible {
 
 .player-hand-meta {
   display: flex;
+  flex-wrap: wrap;
   min-height: 16px;
   align-items: center;
   justify-content: center;
@@ -386,6 +387,13 @@ input:focus-visible {
 .player-hand-meta strong {
   color: var(--cream);
   font: 500 8px "DM Mono", monospace;
+}
+
+.player-hand-meta .hand-state {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(244, 200, 104, 0.16);
+  color: var(--gold-bright);
 }
 
 .player-hand-meta em {
@@ -1309,6 +1317,10 @@ dialog p {
 .mobile-preview .player-hand-meta {
   gap: 4px;
   font-size: 6px;
+}
+
+.mobile-preview .player-hand-meta .hand-state {
+  padding: 1px 4px;
 }
 
 .mobile-preview .card {
