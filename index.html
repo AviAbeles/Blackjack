@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20260617-casino" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-menu2" />
   </head>
   <body>
     <div class="app-shell">
@@ -408,10 +408,10 @@
     <dialog id="session-dialog">
       <form id="session-form">
         <span class="eyebrow">CASINO SETUP</span>
-        <h2>Start your session</h2>
-        <p>Choose a game, wallet style, and Blackjack mode.</p>
+        <h2 id="session-title">Pick a game</h2>
+        <p id="session-copy">Choose the table you want to open first.</p>
 
-        <div class="session-section">
+        <div class="session-step" id="session-step-game">
           <span class="session-section-title">Game</span>
           <div class="game-mode-options casino-game-options" aria-label="Starting game">
             <label>
@@ -431,75 +431,77 @@
           </div>
         </div>
 
-        <div class="session-section">
-          <span class="session-section-title">Wallet</span>
-          <div class="game-mode-options wallet-mode-options" aria-label="Wallet mode">
-            <label>
-              <input name="wallet-mode" type="radio" value="universal" checked />
-              <span>
-                <strong>Universal</strong>
-                <small>One balance across games.</small>
-              </span>
-            </label>
-            <label>
-              <input name="wallet-mode" type="radio" value="local" />
-              <span>
-                <strong>Local</strong>
-                <small>Separate game balances.</small>
-              </span>
-            </label>
+        <div class="session-step" id="session-step-options" hidden>
+          <div class="session-section">
+            <span class="session-section-title">Wallet</span>
+            <div class="game-mode-options wallet-mode-options" aria-label="Wallet mode">
+              <label>
+                <input name="wallet-mode" type="radio" value="universal" checked />
+                <span>
+                  <strong>Universal</strong>
+                  <small>One balance across games.</small>
+                </span>
+              </label>
+              <label>
+                <input name="wallet-mode" type="radio" value="local" />
+                <span>
+                  <strong>Local</strong>
+                  <small>Separate game balances.</small>
+                </span>
+              </label>
+            </div>
           </div>
-        </div>
 
-        <div class="session-section">
-          <span class="session-section-title">Blackjack mode</span>
-          <div class="game-mode-options" aria-label="Blackjack mode">
-            <label>
-              <input name="game-mode" type="radio" value="normal" checked />
-              <span>
-                <strong>Normal</strong>
-                <small>Standard table play.</small>
-              </span>
-            </label>
-            <label>
-              <input name="game-mode" type="radio" value="hard" />
-              <span>
-                <strong>Hard</strong>
-                <small>Bankroll stays locked.</small>
-              </span>
-            </label>
-            <label>
-              <input name="game-mode" type="radio" value="perfect" />
-              <span>
-                <strong>Perfect Strategy</strong>
-                <small>Hints and move feedback.</small>
-              </span>
-            </label>
+          <div class="session-section" id="blackjack-mode-section">
+            <span class="session-section-title">Blackjack mode</span>
+            <div class="game-mode-options" aria-label="Blackjack mode">
+              <label>
+                <input name="game-mode" type="radio" value="normal" checked />
+                <span>
+                  <strong>Normal</strong>
+                  <small>Standard table play.</small>
+                </span>
+              </label>
+              <label>
+                <input name="game-mode" type="radio" value="hard" />
+                <span>
+                  <strong>Hard</strong>
+                  <small>Bankroll stays locked.</small>
+                </span>
+              </label>
+              <label>
+                <input name="game-mode" type="radio" value="perfect" />
+                <span>
+                  <strong>Perfect Strategy</strong>
+                  <small>Hints and move feedback.</small>
+                </span>
+              </label>
+            </div>
           </div>
-        </div>
 
-        <div class="bankroll-presets" aria-label="Starting bankroll presets">
-          <button data-bankroll="100" type="button">£100</button>
-          <button data-bankroll="500" type="button">£500</button>
-          <button data-bankroll="1000" type="button">£1,000</button>
-          <button data-bankroll="2500" type="button">£2,500</button>
-        </div>
+          <div class="bankroll-presets" aria-label="Starting bankroll presets">
+            <button data-bankroll="100" type="button">£100</button>
+            <button data-bankroll="500" type="button">£500</button>
+            <button data-bankroll="1000" type="button">£1,000</button>
+            <button data-bankroll="2500" type="button">£2,500</button>
+          </div>
 
-        <label class="money-field">
-          <span>Starting money</span>
-          <span class="money-input">
-            <span>£</span>
-            <input
-              id="starting-bankroll"
-              type="number"
-              min="0.1"
-              max="1000000"
-              step="0.1"
-              value="1000"
-              required
-            />
-          </span>
-        </label>
+          <label class="money-field">
+            <span>Starting money</span>
+            <span class="money-input">
+              <span>£</span>
+              <input
+                id="starting-bankroll"
+                type="number"
+                min="0.1"
+                max="1000000"
+                step="0.1"
+                value="1000"
+                required
+              />
+            </span>
+          </label>
+        </div>
 
         <p class="form-error" id="session-error" role="alert"></p>
 
@@ -507,7 +509,18 @@
           <button class="dialog-cancel" id="session-cancel" type="button">
             Cancel
           </button>
-          <button class="dialog-confirm" type="submit">Start session</button>
+          <button class="dialog-cancel" id="session-back" type="button" hidden>
+            Back
+          </button>
+          <button class="dialog-danger" id="session-forfeit" type="button" hidden>
+            Forfeit challenge
+          </button>
+          <button class="dialog-confirm" id="session-next" type="button">
+            Continue
+          </button>
+          <button class="dialog-confirm" id="session-submit" type="submit" hidden>
+            Start session
+          </button>
         </div>
       </form>
     </dialog>
@@ -537,6 +550,6 @@
         );
       }
     </script>
-    <script type="module" src="./src/app.js?v=20260617-casino"></script>
+    <script type="module" src="./src/app.js?v=20260617-menu2"></script>
   </body>
 </html>

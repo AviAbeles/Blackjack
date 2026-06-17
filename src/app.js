@@ -88,6 +88,15 @@ const elements = {
   sessionDialog: document.querySelector("#session-dialog"),
   sessionForm: document.querySelector("#session-form"),
   sessionCancel: document.querySelector("#session-cancel"),
+  sessionTitle: document.querySelector("#session-title"),
+  sessionCopy: document.querySelector("#session-copy"),
+  sessionStepGame: document.querySelector("#session-step-game"),
+  sessionStepOptions: document.querySelector("#session-step-options"),
+  sessionBack: document.querySelector("#session-back"),
+  sessionForfeit: document.querySelector("#session-forfeit"),
+  sessionNext: document.querySelector("#session-next"),
+  sessionSubmit: document.querySelector("#session-submit"),
+  blackjackModeSection: document.querySelector("#blackjack-mode-section"),
   startingBankroll: document.querySelector("#starting-bankroll"),
   bankrollPresets: [...document.querySelectorAll("[data-bankroll]")],
   sessionGames: [...document.querySelectorAll('[name="session-game"]')],
@@ -124,6 +133,8 @@ const ui = {
   visiblePlayerCards: [],
   visibleDealerCards: 0,
   sessionRequired: true,
+  sessionStep: 1,
+  pendingSessionGame: "blackjack",
   extraChipsOpen: false,
   rouletteExtraChipsOpen: false,
   activeGame: "blackjack",
@@ -1322,8 +1333,47 @@ for (const button of elements.viewButtons) {
   button.addEventListener("click", () => setView(button.dataset.view));
 }
 
+function selectedSessionGame() {
+  return (
+    elements.sessionGames.find((sessionGame) => sessionGame.checked)?.value ||
+    ui.pendingSessionGame ||
+    "blackjack"
+  );
+}
+
+function renderSessionDialogStep() {
+  const gameName = selectedSessionGame();
+  const gameLabel = gameName === "roulette" ? "Roulette" : "Blackjack";
+  const onGameStep = ui.sessionStep === 1;
+
+  elements.sessionStepGame.hidden = !onGameStep;
+  elements.sessionStepOptions.hidden = onGameStep;
+  elements.sessionBack.hidden = onGameStep;
+  elements.sessionForfeit.hidden = true;
+  elements.sessionNext.hidden = !onGameStep;
+  elements.sessionSubmit.hidden = onGameStep;
+  elements.blackjackModeSection.hidden = gameName !== "blackjack";
+  elements.sessionTitle.textContent = onGameStep
+    ? "Pick a game"
+    : `Set up ${gameLabel}`;
+  elements.sessionCopy.textContent = onGameStep
+    ? "Choose the table you want to open first."
+    : gameName === "blackjack"
+      ? "Choose a wallet style, starting money, and Blackjack mode."
+      : "Choose a wallet style and starting money for European Roulette.";
+}
+
+function goToSessionOptions() {
+  ui.pendingSessionGame = selectedSessionGame();
+  ui.sessionStep = 2;
+  elements.sessionError.textContent = "";
+  renderSessionDialogStep();
+}
+
 function openSessionDialog(required = false) {
   ui.sessionRequired = required;
+  ui.sessionStep = 1;
+  ui.pendingSessionGame = ui.activeGame;
   elements.sessionCancel.hidden = required;
   elements.startingBankroll.value = String(game.startingBalance);
   for (const sessionGame of elements.sessionGames) {
@@ -1336,6 +1386,7 @@ function openSessionDialog(required = false) {
     mode.checked = mode.value === ui.gameMode;
   }
   elements.sessionError.textContent = "";
+  renderSessionDialogStep();
   elements.sessionDialog.showModal();
 }
 
@@ -1349,16 +1400,42 @@ elements.sessionCancel.addEventListener("click", () => {
   if (!ui.sessionRequired) elements.sessionDialog.close();
 });
 
+elements.sessionNext.addEventListener("click", goToSessionOptions);
+
+elements.sessionBack.addEventListener("click", () => {
+  ui.sessionStep = 1;
+  elements.sessionError.textContent = "";
+  elements.sessionForfeit.hidden = true;
+  renderSessionDialogStep();
+});
+
+elements.sessionForfeit.addEventListener("click", () => {
+  if (!game.forfeitChallenge()) return;
+  elements.sessionError.textContent =
+    "Challenge forfeited. You can now start a new Blackjack session.";
+  elements.sessionForfeit.hidden = true;
+});
+
+for (const sessionGame of elements.sessionGames) {
+  sessionGame.addEventListener("change", () => {
+    ui.pendingSessionGame = selectedSessionGame();
+    renderSessionDialogStep();
+  });
+}
+
 elements.sessionDialog.addEventListener("cancel", (event) => {
   if (ui.sessionRequired) event.preventDefault();
 });
 
 elements.sessionForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (ui.sessionStep === 1) {
+    goToSessionOptions();
+    return;
+  }
+
   const startingBalance = Number(elements.startingBankroll.value);
-  const selectedGame =
-    elements.sessionGames.find((sessionGame) => sessionGame.checked)?.value ||
-    "blackjack";
+  const selectedGame = ui.pendingSessionGame || selectedSessionGame();
   const selectedWalletMode =
     elements.walletModes.find((walletMode) => walletMode.checked)?.value ||
     "universal";
@@ -1366,14 +1443,23 @@ elements.sessionForm.addEventListener("submit", (event) => {
     elements.gameModes.find((mode) => mode.checked)?.value || "normal";
 
   try {
-    const configured = game.configureSession({
-      startingBalance,
-      hardMode: selectedMode === "hard",
-    });
-    if (!configured) {
-      elements.sessionError.textContent =
-        "Forfeit the active hard-mode challenge before changing the bankroll.";
-      return;
+    if (selectedGame === "blackjack") {
+      const configured = game.configureSession({
+        startingBalance,
+        hardMode: selectedMode === "hard",
+      });
+      if (!configured) {
+        elements.sessionError.textContent =
+          "Forfeit the active hard-mode challenge before changing Blackjack settings.";
+        elements.sessionForfeit.hidden = false;
+        return;
+      }
+      ui.gameMode = selectedMode;
+    } else if (game.canConfigureSession()) {
+      game.configureSession({
+        startingBalance,
+        hardMode: false,
+      });
     }
 
     wallet.configure({
@@ -1381,10 +1467,11 @@ elements.sessionForm.addEventListener("submit", (event) => {
       startingBalance,
     });
     roulette.configureSession({ startingBalance });
-    ui.gameMode = selectedMode;
     ui.walletMode = selectedWalletMode;
     ui.activeGame = selectedGame;
-    syncEngineFromWallet("blackjack");
+    if (selectedGame === "blackjack" || game.canConfigureSession()) {
+      syncEngineFromWallet("blackjack");
+    }
     syncEngineFromWallet("roulette");
     ui.visiblePlayerCards = [];
     ui.visibleDealerCards = 0;
@@ -1403,12 +1490,7 @@ elements.sessionForm.addEventListener("submit", (event) => {
 
 elements.sessionSettings.addEventListener("click", () => {
   if (ui.busy) return;
-
-  if (game.hardMode && game.challengeActive && !game.isBankrupt()) {
-    elements.forfeitDialog.showModal();
-  } else {
-    openSessionDialog(false);
-  }
+  openSessionDialog(false);
 });
 
 elements.forfeitDialog.addEventListener("close", () => {
